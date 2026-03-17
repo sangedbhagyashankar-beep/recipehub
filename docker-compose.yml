@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   api-gateway:
     build: ./api-gateway
@@ -73,7 +71,7 @@ services:
       - recipehub-network
 
   frontend:
-    build: ./frontend
+    build: ./src/frontend
     ports:
       - '3000:3000'
     environment:

@@ -1,32 +1,25 @@
-# RecipeHub - Microservices Recipe Platform
+# RecipeHub
 
 ## Current State
-New project. No existing application files.
+RecipeHub is a full-stack microservices recipe platform with React frontend and 5 Node.js backend services (API Gateway, User, Recipe, Order, Notification). It has pages for browsing recipes, adding recipes, orders, favorites, tips, about, and profile.
 
 ## Requested Changes (Diff)
 
 ### Add
-- Full React frontend with: Home, Login, Register, AddRecipe, RecipeDetails pages
-- Navbar, Footer, RecipeCard components
-- API service layer (api.js) communicating with backend
-- Motoko backend handling: users, recipes, orders, notifications
-- Node.js microservice reference files matching the exact folder structure:
-  - api-gateway/ (server.js, routes/gatewayRoutes.js, config/gatewayConfig.js)
-  - user-service/ (server.js, routes, controller, models, config/db.js)
-  - recipe-service/ (server.js, routes, controller, models, config/db.js)
-  - order-service/ (server.js, routes, controller, models, config/db.js)
-  - notification-service/ (server.js, services/emailService.js, config)
-  - docker-compose.yml, README.md
+- `/architecture` page: Interactive visual diagram of all 5 microservices showing their names, ports, roles, and connections through the API Gateway. Arrows animate from frontend → API Gateway → each service. Includes a legend and description panel that explains each service's responsibilities when clicked.
+- `/api-docs` page: API Explorer listing all endpoints grouped by service (User, Recipe, Order, Notification). Each endpoint shows method (GET/POST/PUT/DELETE), path, description, example request body (JSON), and example response. Collapsible sections per service.
+- `/health` page: Service Health Dashboard showing real-time status cards for each microservice. Each card displays: service name, port, role description, and a simulated status indicator (Online/Checking). Includes a "Check All Services" button that animates through checking states and resolves to Online. Auto-refreshes every 30 seconds.
 
 ### Modify
-- Nothing (new project)
+- Navbar: Add links to Architecture, API Docs, and Health Dashboard pages
+- Footer: List the new pages in the sitemap section
 
 ### Remove
-- Nothing
+- Nothing removed
 
 ## Implementation Plan
-1. Select authorization component for user login/register
-2. Generate Motoko backend: user management, recipe CRUD, order management, notifications
-3. Build React frontend with all pages and components
-4. Write all Node.js microservice reference files with complete working code
-5. Deploy
+1. Create `src/frontend/src/pages/Architecture.tsx` with SVG/CSS-based service diagram and click-to-expand service info panels
+2. Create `src/frontend/src/pages/ApiDocs.tsx` with collapsible endpoint cards grouped by service
+3. Create `src/frontend/src/pages/Health.tsx` with service status cards and animated check flow
+4. Update router in `App.tsx` to add the 3 new routes
+5. Update `Navbar.tsx` to add navigation links for the new pages

@@ -1,5 +1,6 @@
+import { useFavorites } from "@/hooks/useFavorites";
 import { Link } from "@tanstack/react-router";
-import { Clock, Star, Users } from "lucide-react";
+import { Clock, Heart, Star, Users } from "lucide-react";
 import { motion } from "motion/react";
 import type { Recipe } from "../backend";
 
@@ -23,6 +24,8 @@ export default function RecipeCard({ recipe, index = 0 }: RecipeCardProps) {
   const categoryColor =
     CATEGORY_COLORS[recipe.category] ?? "bg-gray-100 text-gray-800";
   const stars = Math.min(5, Math.max(0, Number(recipe.rating)));
+  const { isFavorite, toggleFavorite } = useFavorites();
+  const fav = isFavorite(recipe.recipeId);
 
   return (
     <motion.div
@@ -48,6 +51,7 @@ export default function RecipeCard({ recipe, index = 0 }: RecipeCardProps) {
                 (e.target as HTMLImageElement).src = PLACEHOLDER_IMAGE;
               }}
             />
+            {/* Category Badge */}
             <div className="absolute top-3 left-3">
               <span
                 className={`text-xs font-semibold px-2.5 py-1 rounded-full ${categoryColor}`}
@@ -55,6 +59,31 @@ export default function RecipeCard({ recipe, index = 0 }: RecipeCardProps) {
                 {recipe.category}
               </span>
             </div>
+            {/* Cook time badge */}
+            <div className="absolute bottom-3 left-3">
+              <span className="inline-flex items-center gap-1 text-xs font-medium bg-foreground/70 text-white px-2 py-0.5 rounded-full backdrop-blur-sm">
+                <Clock className="w-3 h-3" />
+                {recipe.cookTime.toString()}m
+              </span>
+            </div>
+            {/* Favorite button */}
+            <button
+              type="button"
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                toggleFavorite(recipe.recipeId);
+              }}
+              className={`absolute top-3 right-3 w-8 h-8 rounded-full flex items-center justify-center backdrop-blur-sm transition-all ${
+                fav
+                  ? "bg-primary/90 text-primary-foreground shadow-md scale-110"
+                  : "bg-background/80 text-muted-foreground hover:bg-primary/20 hover:text-primary"
+              }`}
+              aria-label={fav ? "Remove from favorites" : "Add to favorites"}
+              data-ocid={`recipe.toggle.${index + 1}`}
+            >
+              <Heart className={`w-4 h-4 ${fav ? "fill-current" : ""}`} />
+            </button>
           </div>
           <div className="p-4 flex flex-col flex-1">
             <h3 className="font-display font-semibold text-lg text-foreground leading-tight mb-2 group-hover:text-primary transition-colors line-clamp-2">
@@ -65,10 +94,6 @@ export default function RecipeCard({ recipe, index = 0 }: RecipeCardProps) {
             </p>
             <div className="flex items-center justify-between text-sm">
               <div className="flex items-center gap-3 text-muted-foreground">
-                <span className="flex items-center gap-1">
-                  <Clock className="w-3.5 h-3.5" />
-                  {recipe.cookTime.toString()}m
-                </span>
                 <span className="flex items-center gap-1">
                   <Users className="w-3.5 h-3.5" />
                   {recipe.servings.toString()}

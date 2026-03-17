@@ -14,6 +14,12 @@ actor {
   let accessControlState = AccessControl.initState();
   include MixinAuthorization(accessControlState);
 
+  //--------------------- Helpers ---------------------
+
+  func isAuthenticated(caller : Principal) : Bool {
+    not caller.isAnonymous();
+  };
+
   //--------------------- Types ---------------------
 
   public type UserProfile = {
@@ -76,9 +82,9 @@ actor {
 
   //--------------------- User Management ---------------------
 
-  public shared ({ caller }) func registerUser(name : Text, email : Text, password : Text) : async () {
-    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
-      Runtime.trap("Unauthorized: Only users can register");
+  public shared ({ caller }) func registerUser(name : Text, email : Text, _password : Text) : async () {
+    if (not isAuthenticated(caller)) {
+      Runtime.trap("Unauthorized: Must be logged in to register");
     };
 
     let profile : UserProfile = {
@@ -90,8 +96,8 @@ actor {
   };
 
   public query ({ caller }) func getCallerUserProfile() : async ?UserProfile {
-    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
-      Runtime.trap("Unauthorized: Only users can view profiles");
+    if (not isAuthenticated(caller)) {
+      return null;
     };
     userProfiles.get(caller);
   };
@@ -104,8 +110,8 @@ actor {
   };
 
   public shared ({ caller }) func saveCallerUserProfile(profile : UserProfile) : async () {
-    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
-      Runtime.trap("Unauthorized: Only users can save profiles");
+    if (not isAuthenticated(caller)) {
+      Runtime.trap("Unauthorized: Must be logged in to save profile");
     };
     userProfiles.add(caller, profile);
   };
@@ -122,8 +128,8 @@ actor {
     servings : Nat,
     imageUrl : Text
   ) : async Nat {
-    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
-      Runtime.trap("Unauthorized: Only users can create recipes");
+    if (not isAuthenticated(caller)) {
+      Runtime.trap("Unauthorized: Must be logged in to create recipes");
     };
 
     let recipeId = nextRecipeId;
@@ -147,18 +153,15 @@ actor {
     recipeId;
   };
 
-  public query ({ caller }) func getRecipe(id : Nat) : async ?Recipe {
-    // Any user including guests can view recipes
+  public query func getRecipe(id : Nat) : async ?Recipe {
     recipeStore.get(id);
   };
 
-  public query ({ caller }) func getAllRecipes() : async [Recipe] {
-    // Any user including guests can view recipes
+  public query func getAllRecipes() : async [Recipe] {
     recipeStore.values().toArray();
   };
 
-  public query ({ caller }) func getRecipesByAuthor(author : Principal) : async [Recipe] {
-    // Any user including guests can view recipes
+  public query func getRecipesByAuthor(author : Principal) : async [Recipe] {
     let recipes = recipeStore.values().toArray();
     recipes.filter<Recipe>(func(r) { r.authorId == author });
   };
@@ -175,8 +178,8 @@ actor {
     imageUrl : Text,
     rating : Nat
   ) : async () {
-    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
-      Runtime.trap("Unauthorized: Only users can update recipes");
+    if (not isAuthenticated(caller)) {
+      Runtime.trap("Unauthorized: Must be logged in to update recipes");
     };
 
     switch (recipeStore.get(recipeId)) {
@@ -184,7 +187,6 @@ actor {
         Runtime.trap("Recipe not found");
       };
       case (?existingRecipe) {
-        // Only the author or admin can update
         if (existingRecipe.authorId != caller and not AccessControl.isAdmin(accessControlState, caller)) {
           Runtime.trap("Unauthorized: Only the recipe author or admin can update this recipe");
         };
@@ -209,8 +211,8 @@ actor {
   };
 
   public shared ({ caller }) func deleteRecipe(recipeId : Nat) : async () {
-    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
-      Runtime.trap("Unauthorized: Only users can delete recipes");
+    if (not isAuthenticated(caller)) {
+      Runtime.trap("Unauthorized: Must be logged in to delete recipes");
     };
 
     switch (recipeStore.get(recipeId)) {
@@ -218,7 +220,6 @@ actor {
         Runtime.trap("Recipe not found");
       };
       case (?recipe) {
-        // Only the author or admin can delete
         if (recipe.authorId != caller and not AccessControl.isAdmin(accessControlState, caller)) {
           Runtime.trap("Unauthorized: Only the recipe author or admin can delete this recipe");
         };
@@ -234,47 +235,38 @@ actor {
     quantity : Nat,
     price : Nat
   ) : async Nat {
-    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
-      Runtime.trap("Unauthorized: Only users can place orders");
+    if (not isAuthenticated(caller)) {
+      Runtime.trap("Unauthorized: Must be logged in to place orders");
     };
 
-    // Verify recipe exists
-    switch (recipeStore.get(recipeId)) {
-      case null {
-        Runtime.trap("Recipe not found");
-      };
-      case (?_) {
-        let orderId = nextOrderId;
-        nextOrderId += 1;
+    let orderId = nextOrderId;
+    nextOrderId += 1;
 
-        let order : Order = {
-          orderId = orderId;
-          userId = caller;
-          recipeId = recipeId;
-          quantity = quantity;
-          price = price;
-          status = #pending;
-          timestamp = 0; // In production, use a proper timestamp
-        };
-
-        orderStore.add(orderId, order);
-
-        // Add to user's order list
-        let userOrderList = switch (userOrders.get(caller)) {
-          case null { List.empty<Nat>() };
-          case (?list) { list };
-        };
-        userOrderList.add(orderId);
-        userOrders.add(caller, userOrderList);
-
-        orderId;
-      };
+    let order : Order = {
+      orderId = orderId;
+      userId = caller;
+      recipeId = recipeId;
+      quantity = quantity;
+      price = price;
+      status = #pending;
+      timestamp = 0;
     };
+
+    orderStore.add(orderId, order);
+
+    let userOrderList = switch (userOrders.get(caller)) {
+      case null { List.empty<Nat>() };
+      case (?list) { list };
+    };
+    userOrderList.add(orderId);
+    userOrders.add(caller, userOrderList);
+
+    orderId;
   };
 
   public query ({ caller }) func getUserOrders() : async [Order] {
-    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
-      Runtime.trap("Unauthorized: Only users can view their orders");
+    if (not isAuthenticated(caller)) {
+      return [];
     };
 
     switch (userOrders.get(caller)) {
@@ -293,14 +285,13 @@ actor {
   };
 
   public query ({ caller }) func getOrder(orderId : Nat) : async ?Order {
-    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
-      Runtime.trap("Unauthorized: Only users can view orders");
+    if (not isAuthenticated(caller)) {
+      return null;
     };
 
     switch (orderStore.get(orderId)) {
       case null { null };
       case (?order) {
-        // Users can only view their own orders, admins can view all
         if (order.userId != caller and not AccessControl.isAdmin(accessControlState, caller)) {
           Runtime.trap("Unauthorized: Can only view your own orders");
         };
@@ -348,12 +339,11 @@ actor {
       userId = userId;
       message = message;
       isRead = false;
-      timestamp = 0; // In production, use a proper timestamp
+      timestamp = 0;
     };
 
     notificationStore.add(notificationId, notification);
 
-    // Add to user's notification list
     let userNotifList = switch (userNotifications.get(userId)) {
       case null { List.empty<Nat>() };
       case (?list) { list };
@@ -365,8 +355,8 @@ actor {
   };
 
   public query ({ caller }) func getUserNotifications() : async [Notification] {
-    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
-      Runtime.trap("Unauthorized: Only users can view their notifications");
+    if (not isAuthenticated(caller)) {
+      return [];
     };
 
     switch (userNotifications.get(caller)) {
@@ -385,8 +375,8 @@ actor {
   };
 
   public shared ({ caller }) func markNotificationAsRead(notificationId : Nat) : async () {
-    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
-      Runtime.trap("Unauthorized: Only users can mark notifications as read");
+    if (not isAuthenticated(caller)) {
+      Runtime.trap("Unauthorized: Must be logged in");
     };
 
     switch (notificationStore.get(notificationId)) {
@@ -394,7 +384,6 @@ actor {
         Runtime.trap("Notification not found");
       };
       case (?notification) {
-        // Users can only mark their own notifications as read
         if (notification.userId != caller) {
           Runtime.trap("Unauthorized: Can only mark your own notifications as read");
         };
